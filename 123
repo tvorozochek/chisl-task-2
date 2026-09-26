@@ -1,0 +1,83 @@
+def read_input(file_path):
+    """Считывание матрицы A и вектора b из файла."""
+    a = []
+    b = []
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line_str = line.strip()
+            if not line_str:
+                continue
+            parts = [float(x) for x in line_str.split()]
+            a.append(parts[:-1])
+            b.append(parts[-1])
+    return a, b
+
+
+def solve_seidel_verzhbitsky(a, b, eps=1e-6, max_iterations=1000):
+    """Решение СЛАУ методом Зейделя строго по алгоритму В. М. Вержбицкого.
+
+    Переход к приведённой форме: x_i = g_i + sum_{j=1}^{n} c_ij * x_j
+    где c_ij = -a_ij / a_ii (при j != i), c_ii = 0
+        g_i = b_i / a_ii
+    """
+    n = len(b)
+
+    # 1. Приведение системы к итерационному виду (по книге)
+    c = [[0.0] * n for _ in range(n)]
+    g = [0.0] * n
+
+    for i in range(n):
+        if abs(a[i][i]) < 1e-12:
+            raise ValueError(
+                f"Диагональный элемент a[{i+1}][{i+1}] близок к нулю!"
+            )
+
+        g[i] = b[i] / a[i][i]
+        for j in range(n):
+            if i != j:
+                c[i][j] = -a[i][j] / a[i][i]
+            else:
+                c[i][j] = 0.0
+
+    # 2. Итерационный процесс Зейделя
+    x = list(g)  # В качестве начального приближения x^(0) берём вектор g
+
+    for k in range(1, max_iterations + 1):
+        x_prev = list(x)
+
+        for i in range(n):
+            # Первая сумма: использует x_j с КУКУЩЕЙ итерации (j < i)
+            s1 = sum(c[i][j] * x[j] for j in range(i))
+
+            # Вторая сумма: использует x_j с ПРЕДЫДУЩЕЙ итерации (j > i)
+            s2 = sum(c[i][j] * x_prev[j] for j in range(i + 1, n))
+
+            # Расчет x_i^(k) по приведенной форме
+            x[i] = g[i] + s1 + s2
+
+        # 3. Проверка критерия остановки по норме (Вержбицкий)
+        # ||x^(k) - x^(k-1)|| = max_i |x_i^(k) - x_i^(k-1)|
+        diff = max(abs(x[i] - x_prev[i]) for i in range(n))
+
+        if diff < eps:
+            print(f"Решение найдено за {k} итераций (точность eps={eps}).")
+            return x
+
+    raise RuntimeError("Превышено максимальное число итераций.")
+
+
+def main():
+    input_filename = "input.txt"
+    try:
+        a, b = read_input(input_filename)
+        x = solve_seidel_verzhbitsky(a, b, eps=1e-6)
+
+        print("\nВектор неизвестных x:")
+        for i, val in enumerate(x, 1):
+            print(f"x_{i} = {val:.8f}")
+    except Exception as e:
+        print(f"Ошибка: {e}")
+
+
+if __name__ == "__main__":
+    main()
